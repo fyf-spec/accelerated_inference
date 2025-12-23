@@ -1,0 +1,75 @@
+{
+  "timestamp": "2025-12-23T18:48:21.631174",
+  "status": "completed",
+  "config": {
+    "model_name_or_path": "pythia-2.8b-local",
+    "data_dir": "dataset/pg19",
+    "num_samples": 1,
+    "num_eval_tokens": null,
+    "default_params": {
+      "model_name_or_path": "pythia-2.8b-local",
+      "data_dir": "dataset/pg19",
+      "num_samples": 1,
+      "num_eval_tokens": null,
+      "start_size": 4,
+      "recent_size": 252,
+      "heavy_size": 128,
+      "update_interval": 10,
+      "separator_size": 64,
+      "local_size": 256,
+      "context_length": 512
+    }
+  },
+  "results": [
+    {
+      "mode": "baseline",
+      "status": "success",
+      "ppl": 10.524690628051758,
+      "num_tokens": 59086,
+      "time_seconds": 14.848633289337158,
+      "result_file": "/home/yuyang/Experiment/accelerated_inference/outputs/ppl_pg19_batch/ppl_results_baseline.json"
+    },
+    {
+      "mode": "streaming",
+      "status": "success",
+      "ppl": 9.581060409545898,
+      "num_tokens": 59201,
+      "time_seconds": 2175.4321031570435,
+      "result_file": "/home/yuyang/Experiment/accelerated_inference/outputs/ppl_pg19_batch/ppl_results_streaming.json"
+    },
+    {
+      "mode": "h2o",
+      "status": "success",
+      "ppl": 9.525115013122559,
+      "num_tokens": 59201,
+      "time_seconds": 2156.6288368701935,
+      "result_file": "/home/yuyang/Experiment/accelerated_inference/outputs/ppl_pg19_batch/ppl_results_h2o.json"
+    },
+    {
+      "mode": "lazy_h2o",
+      "status": "success",
+      "ppl": 9.450843811035156,
+      "num_tokens": 59201,
+      "time_seconds": 1994.5070271492004,
+      "result_file": "/home/yuyang/Experiment/accelerated_inference/outputs/ppl_pg19_batch/ppl_results_lazy_h2o.json"
+    },
+    {
+      "mode": "sepllm",
+      "status": "success",
+      "ppl": 9.563401222229004,
+      "num_tokens": 59201,
+      "time_seconds": 2083.129967212677,
+      "result_file": "/home/yuyang/Experiment/accelerated_inference/outputs/ppl_pg19_batch/ppl_results_sepllm.json"
+    },
+    {
+      "mode": "unified",
+      "status": "success",
+      "ppl": 9.459750175476074,
+      "num_tokens": 59201,
+      "time_seconds": 2171.506980895996,
+      "result_file": "/home/yuyang/Experiment/accelerated_inference/outputs/ppl_pg19_batch/ppl_results_unified.json"
+    }
+  ],
+  "total_time_seconds": 10602.634430408478,
+  "methods_completed": 6
+}

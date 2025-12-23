@@ -4,10 +4,10 @@
     "output_dir": "outputs/speed_benchmark",
     "mode": "lazy_h2o",
     "seq_lengths": [
-      256,
       512,
       1024,
-      2048
+      2048,
+      4096
     ],
     "num_decode_tokens": 128,
     "start_size": 4,
@@ -17,36 +17,28 @@
   },
   "results": [
     {
-      "seq_length": 256,
-      "kv_cache_size": 384,
-      "avg_decode_latency_ms": 47.25867890670088,
-      "std_decode_latency_ms": 0.8943234545365244,
-      "total_decode_latency_ms": 6049.110900057713,
-      "tokens_per_sec": 21.160134458566265
-    },
-    {
       "seq_length": 512,
       "kv_cache_size": 384,
-      "avg_decode_latency_ms": 48.46430468705876,
-      "std_decode_latency_ms": 1.0650477575608455,
-      "total_decode_latency_ms": 6203.430999943521,
-      "tokens_per_sec": 20.633742843462816
+      "avg_decode_latency_ms": 35.166157485946314,
+      "std_decode_latency_ms": 3.181740476851828,
+      "total_decode_latency_ms": 4501.268158201128,
+      "tokens_per_sec": 28.436430690490898
     },
     {
       "seq_length": 1024,
       "kv_cache_size": 384,
-      "avg_decode_latency_ms": 48.04691015647222,
-      "std_decode_latency_ms": 0.9419533879945327,
-      "total_decode_latency_ms": 6150.004500028444,
-      "tokens_per_sec": 20.812992900965842
+      "avg_decode_latency_ms": 34.816357621821226,
+      "std_decode_latency_ms": 3.1165356660114525,
+      "total_decode_latency_ms": 4456.493775593117,
+      "tokens_per_sec": 28.722131443561686
     },
     {
       "seq_length": 2048,
       "kv_cache_size": 384,
-      "avg_decode_latency_ms": 201.95973437569137,
-      "std_decode_latency_ms": 13.210910819455718,
-      "total_decode_latency_ms": 25850.846000088495,
-      "tokens_per_sec": 4.951482052059798
+      "avg_decode_latency_ms": 34.83866985152417,
+      "std_decode_latency_ms": 2.9698174525275713,
+      "total_decode_latency_ms": 4459.349740995094,
+      "tokens_per_sec": 28.703736516400053
     }
   ]
 }

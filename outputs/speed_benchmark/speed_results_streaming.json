@@ -19,34 +19,34 @@
     {
       "seq_length": 256,
       "kv_cache_size": 256,
-      "avg_decode_latency_ms": 83.74325390627746,
-      "std_decode_latency_ms": 25.713062976753278,
-      "total_decode_latency_ms": 10719.136500003515,
-      "tokens_per_sec": 11.94126038043811
+      "avg_decode_latency_ms": 33.22402236153721,
+      "std_decode_latency_ms": 1.214126300740469,
+      "total_decode_latency_ms": 4252.674862276763,
+      "tokens_per_sec": 30.09870355606551
     },
     {
       "seq_length": 512,
       "kv_cache_size": 256,
-      "avg_decode_latency_ms": 50.877345311732824,
-      "std_decode_latency_ms": 1.965653846409991,
-      "total_decode_latency_ms": 6512.3001999018015,
-      "tokens_per_sec": 19.655113565239223
+      "avg_decode_latency_ms": 32.73465377787943,
+      "std_decode_latency_ms": 0.4281101721974721,
+      "total_decode_latency_ms": 4190.035683568567,
+      "tokens_per_sec": 30.54866585073687
     },
     {
       "seq_length": 1024,
       "kv_cache_size": 256,
-      "avg_decode_latency_ms": 51.46720312507114,
-      "std_decode_latency_ms": 2.5794481609532944,
-      "total_decode_latency_ms": 6587.8020000091055,
-      "tokens_per_sec": 19.42984928809686
+      "avg_decode_latency_ms": 32.85402712026553,
+      "std_decode_latency_ms": 0.588423767063935,
+      "total_decode_latency_ms": 4205.3154713939875,
+      "tokens_per_sec": 30.437668914662964
     },
     {
       "seq_length": 2048,
       "kv_cache_size": 256,
-      "avg_decode_latency_ms": 50.113219531567665,
-      "std_decode_latency_ms": 1.582624192841135,
-      "total_decode_latency_ms": 6414.492100040661,
-      "tokens_per_sec": 19.95481450498452
+      "avg_decode_latency_ms": 32.64650540222647,
+      "std_decode_latency_ms": 0.09865502890985203,
+      "total_decode_latency_ms": 4178.752691484988,
+      "tokens_per_sec": 30.631149878963793
     }
   ]
 }

@@ -1,0 +1,25 @@
+======================================================================
+Batch PPL Testing Report
+Generated at: 2025-12-23 18:48:21
+======================================================================
+
+Configuration:
+  Model: pythia-2.8b-local
+  Data directory: dataset/pg19
+  Num samples: 1
+  Num eval tokens: All
+  Cache params: start=4, recent=252
+
+Results:
+----------------------------------------------------------------------
+Method          Status     PPL             Tokens       Time (s)  
+----------------------------------------------------------------------
+baseline        success    10.5247         59086        14.8      
+streaming       success    9.5811          59201        2175.4    
+h2o             success    9.5251          59201        2156.6    
+lazy_h2o        success    9.4508          59201        1994.5    
+sepllm          success    9.5634          59201        2083.1    
+unified         success    9.4598          59201        2171.5    
+----------------------------------------------------------------------
+Total time: 10602.6 seconds (176.7 minutes)
+======================================================================

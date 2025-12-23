@@ -1,0 +1,12 @@
+{
+  "mode": "sepllm",
+  "ppl": 9.563401222229004,
+  "num_tokens": 59201,
+  "num_samples": 1,
+  "config": {
+    "start_size": 4,
+    "recent_size": 252,
+    "heavy_size": null,
+    "update_interval": null
+  }
+}

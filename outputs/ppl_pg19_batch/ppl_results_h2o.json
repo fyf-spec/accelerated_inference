@@ -1,0 +1,12 @@
+{
+  "mode": "h2o",
+  "ppl": 9.525115013122559,
+  "num_tokens": 59201,
+  "num_samples": 1,
+  "config": {
+    "start_size": 4,
+    "recent_size": 252,
+    "heavy_size": 128,
+    "update_interval": null
+  }
+}
