@@ -231,6 +231,267 @@ class UnifiedKVCache:
         self.accumulated_scores = None
 
 
+class LazyUnifiedKVCache:
+    """
+    Lazy Unified KV Cache: Periodic update version of UnifiedKVCache.
+    
+    Combines LazyH2O's efficiency with UnifiedKVCache's multi-strategy approach:
+    - Every `update_interval` steps: Full recomputation of Separator + Heavy Hitter
+    - Between updates: O(1) lightweight eviction with protected indices
+    
+    Innovation: Protected set includes both Separator tokens AND Heavy Hitter tokens,
+    ensuring semantic structure is preserved even during lazy eviction phases.
+    
+    Cache Structure:
+        [Initial/Sink] + [Protected: Separator + Heavy Hitter] + [Local/Recent]
+    """
+    def __init__(
+        self,
+        tokenizer,
+        start_size: int = 4,
+        separator_size: int = 64,
+        heavy_size: int = 128,
+        local_size: int = 256,
+        update_interval: int = 10,
+        k_seq_dim: int = 2,
+        v_seq_dim: int = 2,
+        separators: Optional[List[str]] = None,
+    ):
+        self.tokenizer = tokenizer
+        self.start_size = start_size
+        self.separator_size = separator_size
+        self.heavy_size = heavy_size
+        self.local_size = local_size
+        self.update_interval = update_interval
+        self.k_seq_dim = k_seq_dim
+        self.v_seq_dim = v_seq_dim
+        
+        # Total cache capacity
+        self.cache_size = start_size + separator_size + heavy_size + local_size
+        
+        # Get separator token IDs
+        self.separator_ids = get_separator_ids(tokenizer, separators)
+        
+        # Slice functions
+        self.k_slice = DIM_TO_SLICE[k_seq_dim]
+        self.v_slice = DIM_TO_SLICE[v_seq_dim]
+        
+        # Track token history for separator detection
+        self.token_history: List[int] = []
+        
+        # Accumulated attention scores
+        self.accumulated_scores: Optional[torch.Tensor] = None
+        
+        # Lazy update state
+        self.step_count = 0
+        self.protected_indices: Set[int] = set(range(start_size))  # Start with sinks
+        
+        print(f"LazyUnifiedKVCache: start={start_size}, sep={separator_size}, "
+              f"heavy={heavy_size}, local={local_size}, interval={update_interval}")
+        print(f"  Total capacity: {self.cache_size}")
+    
+    def _is_separator(self, token_id: int) -> bool:
+        """Check if token is a separator."""
+        return int(token_id) in self.separator_ids
+    
+    def update_scores(self, attn_weights: torch.Tensor):
+        """Update accumulated attention scores."""
+        if attn_weights.dim() == 4:
+            new_scores = attn_weights.sum(dim=(0, 1, 2)).detach()
+        elif attn_weights.dim() == 3:
+            new_scores = attn_weights.sum(dim=(0, 1)).detach()
+        else:
+            return
+        
+        k_len = new_scores.shape[-1]
+        
+        if self.accumulated_scores is None:
+            self.accumulated_scores = new_scores
+        else:
+            old_len = self.accumulated_scores.shape[-1]
+            if k_len > old_len:
+                padding = torch.zeros(k_len - old_len, 
+                                     device=self.accumulated_scores.device,
+                                     dtype=self.accumulated_scores.dtype)
+                self.accumulated_scores = torch.cat([self.accumulated_scores, padding])
+            self.accumulated_scores[:k_len] = self.accumulated_scores[:k_len] + new_scores
+    
+    def _full_update_eviction(self, past_key_values, seq_len: int) -> Tuple[list, List[int]]:
+        """
+        Full update: Recompute Separator + Heavy Hitter indices.
+        Called every `update_interval` steps.
+        """
+        keep_indices: Set[int] = set()
+        
+        # 1. Always keep initial tokens (sinks)
+        keep_indices.update(range(min(self.start_size, seq_len)))
+        
+        # 2. Always keep local (recent) tokens
+        local_start = max(self.start_size, seq_len - self.local_size)
+        keep_indices.update(range(local_start, seq_len))
+        
+        # Middle region
+        middle_start = self.start_size
+        middle_end = local_start
+        
+        if middle_end > middle_start:
+            middle_indices = list(range(middle_start, middle_end))
+            
+            # 3. Find separator tokens in middle region
+            separator_indices = []
+            for idx in middle_indices:
+                if idx < len(self.token_history) and self._is_separator(self.token_history[idx]):
+                    separator_indices.append(idx)
+            
+            # Keep most recent separators
+            separator_indices = separator_indices[-self.separator_size:]
+            keep_indices.update(separator_indices)
+            
+            # 4. Find Heavy Hitter tokens
+            remaining_middle = set(middle_indices) - keep_indices
+            
+            if self.accumulated_scores is not None and len(remaining_middle) > 0:
+                remaining_list = sorted(remaining_middle)
+                
+                if len(self.accumulated_scores) >= max(remaining_list) + 1:
+                    remaining_scores = self.accumulated_scores[remaining_list]
+                    
+                    heavy_budget = min(self.heavy_size, len(remaining_list))
+                    if heavy_budget > 0 and remaining_scores.numel() > 0:
+                        _, top_k_indices = remaining_scores.topk(heavy_budget)
+                        heavy_indices = [remaining_list[i] for i in top_k_indices.tolist()]
+                        keep_indices.update(heavy_indices)
+        
+        keep_list = sorted(keep_indices)
+        
+        # Update protected indices (Separator + Heavy Hitter, relative to new cache)
+        new_protected: Set[int] = set()
+        for new_idx, old_idx in enumerate(keep_list):
+            # Sinks are always protected
+            if old_idx < self.start_size:
+                new_protected.add(new_idx)
+            # Separators and Heavy Hitters in middle region are protected
+            elif old_idx < local_start:
+                new_protected.add(new_idx)
+        
+        self.protected_indices = new_protected
+        
+        # Apply eviction
+        new_past = []
+        for k, v in past_key_values:
+            layer_device = k.device
+            keep_tensor = torch.tensor(keep_list, device=layer_device, dtype=torch.long)
+            new_k = torch.index_select(k, self.k_seq_dim, keep_tensor)
+            new_v = torch.index_select(v, self.v_seq_dim, keep_tensor)
+            new_past.append([new_k, new_v])
+        
+        return new_past, keep_list
+    
+    def _lazy_eviction(self, past_key_values, seq_len: int) -> Tuple[list, List[int]]:
+        """
+        Lazy eviction: O(1) eviction of oldest non-protected tokens.
+        Used between full updates for efficiency.
+        """
+        num_to_evict = seq_len - self.cache_size
+        if num_to_evict <= 0:
+            return past_key_values, list(range(seq_len))
+        
+        # Find eviction candidates: non-protected tokens in middle region
+        local_start = max(self.start_size, seq_len - self.local_size)
+        evict_candidates = []
+        
+        for idx in range(self.start_size, local_start):
+            if idx not in self.protected_indices:
+                evict_candidates.append(idx)
+        
+        # If not enough non-protected, evict oldest protected (except sinks)
+        if len(evict_candidates) < num_to_evict:
+            protected_middle = sorted([i for i in self.protected_indices if i >= self.start_size])
+            evict_candidates.extend(protected_middle[:num_to_evict - len(evict_candidates)])
+        
+        # Evict oldest first
+        evict_set = set(sorted(evict_candidates)[:num_to_evict])
+        keep_list = [i for i in range(seq_len) if i not in evict_set]
+        
+        # Update protected indices (shift due to eviction)
+        new_protected: Set[int] = set()
+        for new_idx, old_idx in enumerate(keep_list):
+            if old_idx in self.protected_indices:
+                new_protected.add(new_idx)
+        self.protected_indices = new_protected
+        
+        # Apply eviction
+        new_past = []
+        for k, v in past_key_values:
+            layer_device = k.device
+            keep_tensor = torch.tensor(keep_list, device=layer_device, dtype=torch.long)
+            new_k = torch.index_select(k, self.k_seq_dim, keep_tensor)
+            new_v = torch.index_select(v, self.v_seq_dim, keep_tensor)
+            new_past.append([new_k, new_v])
+        
+        return new_past, keep_list
+    
+    def __call__(
+        self, 
+        past_key_values, 
+        input_ids=None, 
+        attn_weights=None
+    ):
+        """
+        Apply lazy unified eviction to past_key_values.
+        """
+        if past_key_values is None:
+            return None
+        
+        seq_len = past_key_values[0][0].size(self.k_seq_dim)
+        
+        # Update token history
+        if input_ids is not None:
+            if isinstance(input_ids, torch.Tensor):
+                new_tokens = input_ids.view(-1).tolist()
+            else:
+                new_tokens = list(input_ids)
+            self.token_history.extend(new_tokens)
+        
+        # Update attention scores
+        if attn_weights is not None:
+            if isinstance(attn_weights, (list, tuple)):
+                if len(attn_weights) > 0 and attn_weights[0] is not None:
+                    self.update_scores(attn_weights[0])
+            else:
+                self.update_scores(attn_weights)
+        
+        # Check if eviction needed
+        if seq_len <= self.cache_size:
+            self.step_count += 1
+            return past_key_values
+        
+        # Decide eviction strategy
+        if self.step_count % self.update_interval == 0:
+            new_past, keep_list = self._full_update_eviction(past_key_values, seq_len)
+        else:
+            new_past, keep_list = self._lazy_eviction(past_key_values, seq_len)
+        
+        # Update accumulated scores
+        if self.accumulated_scores is not None and len(keep_list) > 0:
+            score_device = self.accumulated_scores.device
+            score_indices = torch.tensor(keep_list, device=score_device, dtype=torch.long)
+            self.accumulated_scores = self.accumulated_scores[score_indices]
+        
+        # Update token history
+        self.token_history = [self.token_history[i] for i in keep_list if i < len(self.token_history)]
+        
+        self.step_count += 1
+        return new_past
+    
+    def reset(self):
+        """Reset cache state for new sequence."""
+        self.token_history = []
+        self.accumulated_scores = None
+        self.step_count = 0
+        self.protected_indices = set(range(self.start_size))
+
+
 def enable_unified_cache(model, tokenizer, start_size=4, separator_size=64, 
                          heavy_size=128, local_size=256):
     """
@@ -262,6 +523,43 @@ def enable_unified_cache(model, tokenizer, start_size=4, separator_size=64,
         separator_size=separator_size,
         heavy_size=heavy_size,
         local_size=local_size,
+        k_seq_dim=k_seq_dim,
+        v_seq_dim=v_seq_dim,
+    )
+
+
+def enable_lazy_unified_cache(model, tokenizer, start_size=4, separator_size=64, 
+                              heavy_size=128, local_size=256, update_interval=10):
+    """
+    Enable Lazy Unified KV Cache for a model.
+    
+    Args:
+        model: HuggingFace model
+        tokenizer: HuggingFace tokenizer
+        start_size: Number of sink tokens
+        separator_size: Max separator tokens
+        heavy_size: Max heavy hitter tokens
+        local_size: Recent window size
+        update_interval: Steps between full H2O updates
+        
+    Returns:
+        LazyUnifiedKVCache instance
+    """
+    from accelerated_inference.utils import enable_gpt_neox_pos_shift_attention
+    
+    if "gpt_neox" in model.config.model_type:
+        k_seq_dim = v_seq_dim = 2
+        enable_gpt_neox_pos_shift_attention(model)
+    else:
+        raise ValueError(f"Unsupported model type: {model.config.model_type}")
+    
+    return LazyUnifiedKVCache(
+        tokenizer=tokenizer,
+        start_size=start_size,
+        separator_size=separator_size,
+        heavy_size=heavy_size,
+        local_size=local_size,
+        update_interval=update_interval,
         k_seq_dim=k_seq_dim,
         v_seq_dim=v_seq_dim,
     )

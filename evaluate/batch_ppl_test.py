@@ -90,6 +90,16 @@ METHODS = [
             "--local_size", str(DEFAULT_PARAMS["local_size"]),
         ],
     },
+    {
+        "name": "lazy_unified",
+        "description": "Lazy Unified KV cache (periodic update version)",
+        "extra_args": [
+            "--separator_size", str(DEFAULT_PARAMS["separator_size"]),
+            "--heavy_size", str(DEFAULT_PARAMS["heavy_size"]),
+            "--local_size", str(DEFAULT_PARAMS["local_size"]),
+            "--update_interval", str(DEFAULT_PARAMS["update_interval"]),
+        ],
+    },
 ]
 
 
@@ -103,8 +113,8 @@ def parse_args():
                         help="Max tokens to evaluate per method (None = all)")
     parser.add_argument("--output_dir", type=str, default=OUTPUT_DIR)
     parser.add_argument("--methods", type=str, nargs="+", 
-                        default=["baseline", "streaming", "h2o", "lazy_h2o", "sepllm", "unified"],
-                        help="Methods to test (default: all 6)")
+                        default=["baseline", "streaming", "h2o", "lazy_h2o", "sepllm", "unified", "lazy_unified"],
+                        help="Methods to test (default: all 7)")
     parser.add_argument("--dry_run", action="store_true", help="Print commands without running")
     return parser.parse_args()
 

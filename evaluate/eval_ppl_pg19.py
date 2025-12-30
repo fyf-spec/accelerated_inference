@@ -35,7 +35,7 @@ from torch.nn import CrossEntropyLoss
 
 # Import from accelerated_inference
 from accelerated_inference.kvpress.presses.benchmark_presses import StartRecentKVCache, SepLLMKVCache
-from accelerated_inference.kvpress.presses.unified_press import UnifiedKVCache
+from accelerated_inference.kvpress.presses.unified_press import UnifiedKVCache, LazyUnifiedKVCache
 from accelerated_inference.utils import (
     enable_gpt_neox_pos_shift_attention,
     H2OKVCache,
@@ -90,7 +90,7 @@ def parse_args():
     parser.add_argument(
         "--mode",
         type=str,
-        choices=["baseline", "streaming", "h2o", "lazy_h2o", "sepllm", "unified"],
+        choices=["baseline", "streaming", "h2o", "lazy_h2o", "sepllm", "unified", "lazy_unified"],
         default="baseline",
         help="KV cache strategy to use"
     )
@@ -216,6 +216,24 @@ def setup_cache(model, tokenizer, args):
         need_input_ids = True
         print(f"Mode: Unified (start={args.start_size}, sep={args.separator_size}, "
               f"heavy={args.heavy_size}, local={args.local_size})")
+    
+    elif mode == "lazy_unified":
+        k_seq_dim = v_seq_dim = 2
+        enable_gpt_neox_pos_shift_attention(model)
+        kv_cache = LazyUnifiedKVCache(
+            tokenizer=tokenizer,
+            start_size=args.start_size,
+            separator_size=args.separator_size,
+            heavy_size=args.heavy_size,
+            local_size=args.local_size,
+            update_interval=args.update_interval,
+            k_seq_dim=k_seq_dim,
+            v_seq_dim=v_seq_dim,
+        )
+        need_attention = True
+        need_input_ids = True
+        print(f"Mode: LazyUnified (start={args.start_size}, sep={args.separator_size}, "
+              f"heavy={args.heavy_size}, local={args.local_size}, interval={args.update_interval})")
     
     return kv_cache, need_attention, need_input_ids
 

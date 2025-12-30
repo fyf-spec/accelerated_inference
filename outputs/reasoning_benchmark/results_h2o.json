@@ -1,0 +1,29 @@
+{
+  "cache_config": {
+    "mode": "h2o",
+    "sizes": {
+      "start_size": 4,
+      "heavy_size": 204,
+      "recent_size": 204,
+      "total_budget": 412,
+      "budget_ratio": 0.201171875
+    }
+  },
+  "results": {
+    "arc_challenge": {
+      "Accuracy": 0.2935
+    },
+    "arc_easy": {
+      "error": "can only concatenate str (not \"CachedPythiaLM\") to str"
+    },
+    "hellaswag": {
+      "error": "can only concatenate str (not \"CachedPythiaLM\") to str"
+    },
+    "winogrande": {
+      "error": "can only concatenate str (not \"CachedPythiaLM\") to str"
+    },
+    "gsm8k": {
+      "error": "can only concatenate str (not \"CachedPythiaLM\") to str"
+    }
+  }
+}

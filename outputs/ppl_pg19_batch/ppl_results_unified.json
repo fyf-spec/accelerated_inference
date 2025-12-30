@@ -6,7 +6,9 @@
   "config": {
     "start_size": 4,
     "recent_size": 252,
-    "heavy_size": null,
-    "update_interval": null
+    "heavy_size": 128,
+    "update_interval": null,
+    "separator_size": 64,
+    "local_size": 256
   }
 }

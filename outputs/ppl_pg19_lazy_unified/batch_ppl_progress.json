@@ -1,0 +1,26 @@
+{
+  "timestamp": "2025-12-30T19:33:21.724834",
+  "status": "interrupted",
+  "config": {
+    "model_name_or_path": "pythia-2.8b-local",
+    "data_dir": "dataset/pg19",
+    "num_samples": 1,
+    "num_eval_tokens": null,
+    "default_params": {
+      "model_name_or_path": "pythia-2.8b-local",
+      "data_dir": "dataset/pg19",
+      "num_samples": 1,
+      "num_eval_tokens": null,
+      "start_size": 4,
+      "recent_size": 252,
+      "heavy_size": 128,
+      "update_interval": 10,
+      "separator_size": 64,
+      "local_size": 256,
+      "context_length": 512
+    }
+  },
+  "results": [],
+  "total_time_seconds": 130.9970304965973,
+  "methods_completed": 0
+}

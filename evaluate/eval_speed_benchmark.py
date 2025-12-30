@@ -35,7 +35,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 # Import from accelerated_inference
 from accelerated_inference.kvpress.presses.benchmark_presses import StartRecentKVCache, SepLLMKVCache
-from accelerated_inference.kvpress.presses.unified_press import UnifiedKVCache
+from accelerated_inference.kvpress.presses.unified_press import UnifiedKVCache, LazyUnifiedKVCache
 from accelerated_inference.utils import (
     enable_gpt_neox_pos_shift_attention,
     H2OKVCache,
@@ -69,7 +69,7 @@ def parse_args():
     parser.add_argument(
         "--mode",
         type=str,
-        choices=["baseline", "streaming", "h2o", "lazy_h2o", "sepllm", "unified"],
+        choices=["baseline", "streaming", "h2o", "lazy_h2o", "sepllm", "unified", "lazy_unified"],
         default="baseline",
         help="KV cache strategy to use"
     )
@@ -210,6 +210,23 @@ def setup_cache(model, tokenizer, args):
         print(f"Mode: Unified (start={args.start_size}, sep={args.separator_size}, "
               f"heavy={args.heavy_size}, local={args.local_size})")
     
+    elif mode == "lazy_unified":
+        # LazyUnified: Periodic update version of Unified
+        k_seq_dim = v_seq_dim = 2
+        enable_gpt_neox_pos_shift_attention(model)
+        kv_cache = LazyUnifiedKVCache(
+            tokenizer=tokenizer,
+            start_size=args.start_size,
+            separator_size=args.separator_size,
+            heavy_size=args.heavy_size,
+            local_size=args.local_size,
+            update_interval=args.update_interval,
+            k_seq_dim=k_seq_dim,
+            v_seq_dim=v_seq_dim,
+        )
+        print(f"Mode: LazyUnified (start={args.start_size}, sep={args.separator_size}, "
+              f"heavy={args.heavy_size}, local={args.local_size}, interval={args.update_interval})")
+    
     return kv_cache
 
 
@@ -259,15 +276,15 @@ def benchmark_at_seq_length(model, tokenizer, seq_length, num_decode_tokens, kv_
             prefill_ids,
             past_key_values=past_key_values,
             use_cache=True,
-            output_attentions=(mode in ["h2o", "lazy_h2o", "unified"]),
+            output_attentions=(mode in ["h2o", "lazy_h2o", "unified", "lazy_unified"]),
         )
         past_key_values = outputs.past_key_values
         
         # Apply cache eviction
         if kv_cache is not None:
-            if mode in ["h2o", "lazy_h2o", "unified"]:
+            if mode in ["h2o", "lazy_h2o", "unified", "lazy_unified"]:
                 attn = outputs.attentions[0] if hasattr(outputs, 'attentions') and outputs.attentions else None
-                if mode == "unified":
+                if mode in ["unified", "lazy_unified"]:
                     past_key_values = kv_cache(past_key_values, prefill_ids, attn)
                 else:
                     past_key_values = kv_cache(past_key_values, attn)
@@ -283,13 +300,13 @@ def benchmark_at_seq_length(model, tokenizer, seq_length, num_decode_tokens, kv_
             next_token,
             past_key_values=past_key_values,
             use_cache=True,
-            output_attentions=(mode in ["h2o", "lazy_h2o", "unified"]),
+            output_attentions=(mode in ["h2o", "lazy_h2o", "unified", "lazy_unified"]),
         )
         past_key_values = outputs.past_key_values
         if kv_cache is not None:
-            if mode in ["h2o", "lazy_h2o", "unified"]:
+            if mode in ["h2o", "lazy_h2o", "unified", "lazy_unified"]:
                 attn = outputs.attentions[0] if hasattr(outputs, 'attentions') and outputs.attentions else None
-                if mode == "unified":
+                if mode in ["unified", "lazy_unified"]:
                     past_key_values = kv_cache(past_key_values, next_token, attn)
                 else:
                     past_key_values = kv_cache(past_key_values, attn)
@@ -313,14 +330,14 @@ def benchmark_at_seq_length(model, tokenizer, seq_length, num_decode_tokens, kv_
                 next_token,
                 past_key_values=past_key_values,
                 use_cache=True,
-                output_attentions=(mode in ["h2o", "lazy_h2o", "unified"]),
+                output_attentions=(mode in ["h2o", "lazy_h2o", "unified", "lazy_unified"]),
             )
             past_key_values = outputs.past_key_values
             
             if kv_cache is not None:
-                if mode in ["h2o", "lazy_h2o", "unified"]:
+                if mode in ["h2o", "lazy_h2o", "unified", "lazy_unified"]:
                     attn = outputs.attentions[0] if hasattr(outputs, 'attentions') and outputs.attentions else None
-                    if mode == "unified":
+                    if mode in ["unified", "lazy_unified"]:
                         past_key_values = kv_cache(past_key_values, next_token, attn)
                     else:
                         past_key_values = kv_cache(past_key_values, attn)
